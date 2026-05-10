@@ -22,7 +22,6 @@
 //! axum::serve(listener, app).await?;
 //! ```
 
-mod cache;
 mod converter;
 mod handlers;
 mod middleware;
@@ -31,5 +30,4 @@ mod stream;
 pub mod types;
 mod websearch;
 
-pub use cache::{ResponseCache, ResponseCacheConfig};
 pub use router::create_router_with_provider;

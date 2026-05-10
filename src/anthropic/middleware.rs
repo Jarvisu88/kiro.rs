@@ -13,7 +13,6 @@ use axum::{
 use crate::common::auth;
 use crate::kiro::provider::KiroProvider;
 
-use super::cache::ResponseCache;
 use super::types::ErrorResponse;
 
 /// 应用共享状态
@@ -26,8 +25,6 @@ pub struct AppState {
     pub kiro_provider: Option<Arc<KiroProvider>>,
     /// 是否开启非流式响应的 thinking 块提取
     pub extract_thinking: bool,
-    /// Non-streaming response cache.
-    pub response_cache: Option<Arc<ResponseCache>>,
 }
 
 impl AppState {
@@ -37,19 +34,12 @@ impl AppState {
             api_key: api_key.into(),
             kiro_provider: None,
             extract_thinking,
-            response_cache: None,
         }
     }
 
     /// 设置 KiroProvider
     pub fn with_kiro_provider(mut self, provider: KiroProvider) -> Self {
         self.kiro_provider = Some(Arc::new(provider));
-        self
-    }
-
-    /// Configure response cache.
-    pub fn with_response_cache(mut self, cache: Option<ResponseCache>) -> Self {
-        self.response_cache = cache.map(Arc::new);
         self
     }
 }
