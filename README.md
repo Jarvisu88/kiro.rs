@@ -42,6 +42,7 @@
 - **工具调用**: 完整支持 function calling / tool use
 - **WebSearch**: 内置 WebSearch 工具转换逻辑
 - **多模型支持**: 支持 Sonnet、Opus、Haiku 系列模型
+- **响应缓存**: 可选缓存非流式响应，命中后直接读取本地缓存，并按 TTL 定时清理过期文件
 - **Admin 管理**: 可选的 Web 管理界面和 API，支持凭据管理、余额查询等
 - **多级 Region 配置**: 支持全局和凭据级别的 Auth Region / API Region 配置
 - **凭据级代理**: 支持为每个凭据单独配置 HTTP/SOCKS5 代理，优先级：凭据代理 > 全局代理 > 无代理
@@ -191,6 +192,10 @@ docker-compose up
 | `adminApiKey` | string | - | Admin API 密钥，配置后启用凭据管理 API 和 Web 管理界面 |
 | `loadBalancingMode` | string | `priority` | 负载均衡模式：`priority`（按优先级）或 `balanced`（均衡分配） |
 | `extractThinking` | boolean | `true` | 非流式响应的 thinking 块提取。启用后 `<thinking>` 标签会被解析为独立的 `thinking` 内容块 |
+| `responseCacheEnabled` | boolean | `false` | 是否启用非流式响应缓存。仅缓存 `/v1/messages` 和 `/cc/v1/messages` 的非流式成功响应，流式请求和 WebSearch 请求不会缓存 |
+| `responseCacheTtlSeconds` | number | `86400` | 响应缓存有效期，过期后不再命中 |
+| `responseCacheCleanupIntervalSeconds` | number | `3600` | 后台定时删除过期缓存文件的间隔，最小运行间隔为 60 秒 |
+| `responseCacheDir` | string | - | 响应缓存目录。未配置时默认使用 `credentials.json` 同目录下的 `response_cache` |
 | `defaultEndpoint` | string | `ide` | 默认 Kiro 端点。凭据未显式指定 `endpoint` 时使用。当前支持：`ide` |
 
 完整配置示例：
@@ -216,7 +221,11 @@ docker-compose up
    "proxyPassword": "pass",
    "adminApiKey": "sk-admin-your-secret-key",
    "loadBalancingMode": "priority",
-   "extractThinking": true
+   "extractThinking": true,
+   "responseCacheEnabled": false,
+   "responseCacheTtlSeconds": 86400,
+   "responseCacheCleanupIntervalSeconds": 3600,
+   "responseCacheDir": "./response_cache"
 }
 ```
 

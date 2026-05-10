@@ -282,6 +282,20 @@ pub async fn post_messages(
 
     tracing::debug!("Kiro request body: {}", request_body);
 
+    let cache_key = state
+        .response_cache
+        .as_ref()
+        .and_then(|cache| cache.key_for_request(&payload));
+    if !payload.stream {
+        if let (Some(cache), Some(key)) = (state.response_cache.as_ref(), cache_key.as_ref()) {
+            if let Some(cached) = cache.get_non_stream(key) {
+                tracing::info!(cache_key = %key, "response cache hit");
+                return (StatusCode::OK, Json(cached)).into_response();
+            }
+            tracing::debug!(cache_key = %key, "response cache miss");
+        }
+    }
+
     // 估算输入 tokens
     let input_tokens = token::count_all_tokens(
         payload.model.clone(),
@@ -313,7 +327,17 @@ pub async fn post_messages(
     } else {
         // 非流式响应：仅在配置开启时提取 thinking 块
         let extract_thinking = state.extract_thinking && thinking_enabled;
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens, extract_thinking, tool_name_map).await
+        handle_non_stream_request(
+            provider,
+            &request_body,
+            &payload.model,
+            input_tokens,
+            extract_thinking,
+            tool_name_map,
+            state.response_cache.clone(),
+            cache_key,
+        )
+        .await
     }
 }
 
@@ -461,6 +485,8 @@ async fn handle_non_stream_request(
     input_tokens: i32,
     thinking_enabled: bool,
     tool_name_map: std::collections::HashMap<String, String>,
+    response_cache: Option<std::sync::Arc<super::cache::ResponseCache>>,
+    cache_key: Option<String>,
 ) -> Response {
     // 调用 Kiro API（支持多凭据故障转移）
     let response = match provider.call_api(request_body).await {
@@ -635,6 +661,11 @@ async fn handle_non_stream_request(
         }
     });
 
+    if let (Some(cache), Some(key)) = (response_cache.as_ref(), cache_key.as_ref()) {
+        cache.put_non_stream(key, &response_body);
+        tracing::debug!(cache_key = %key, "response cache stored");
+    }
+
     (StatusCode::OK, Json(response_body)).into_response()
 }
 
@@ -798,6 +829,20 @@ pub async fn post_messages_cc(
 
     tracing::debug!("Kiro request body: {}", request_body);
 
+    let cache_key = state
+        .response_cache
+        .as_ref()
+        .and_then(|cache| cache.key_for_request(&payload));
+    if !payload.stream {
+        if let (Some(cache), Some(key)) = (state.response_cache.as_ref(), cache_key.as_ref()) {
+            if let Some(cached) = cache.get_non_stream(key) {
+                tracing::info!(cache_key = %key, "response cache hit");
+                return (StatusCode::OK, Json(cached)).into_response();
+            }
+            tracing::debug!(cache_key = %key, "response cache miss");
+        }
+    }
+
     // 估算输入 tokens
     let input_tokens = token::count_all_tokens(
         payload.model.clone(),
@@ -829,7 +874,17 @@ pub async fn post_messages_cc(
     } else {
         // 非流式响应：仅在配置开启时提取 thinking 块
         let extract_thinking = state.extract_thinking && thinking_enabled;
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens, extract_thinking, tool_name_map).await
+        handle_non_stream_request(
+            provider,
+            &request_body,
+            &payload.model,
+            input_tokens,
+            extract_thinking,
+            tool_name_map,
+            state.response_cache.clone(),
+            cache_key,
+        )
+        .await
     }
 }
 

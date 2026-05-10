@@ -5,5 +5,8 @@
   "tlsBackend": "rustls",
   "region": "us-east-1",
   "adminApiKey": "sk-admin-your-secret-key",
+  "responseCacheEnabled": false,
+  "responseCacheTtlSeconds": 86400,
+  "responseCacheCleanupIntervalSeconds": 3600,
   "defaultEndpoint": "ide"
 }

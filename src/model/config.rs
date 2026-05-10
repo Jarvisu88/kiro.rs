@@ -98,6 +98,22 @@ pub struct Config {
     #[serde(default = "default_extract_thinking")]
     pub extract_thinking: bool,
 
+    /// Response cache for non-streaming message responses.
+    #[serde(default = "default_response_cache_enabled")]
+    pub response_cache_enabled: bool,
+
+    /// Cache TTL in seconds. Expired entries are ignored and deleted by cleanup.
+    #[serde(default = "default_response_cache_ttl_seconds")]
+    pub response_cache_ttl_seconds: u64,
+
+    /// Interval in seconds for deleting expired response cache files.
+    #[serde(default = "default_response_cache_cleanup_interval_seconds")]
+    pub response_cache_cleanup_interval_seconds: u64,
+
+    /// Optional cache directory. Defaults to `<credentials-dir>/response_cache`.
+    #[serde(default)]
+    pub response_cache_dir: Option<String>,
+
     /// 默认端点名称（凭据未显式指定 endpoint 时使用，默认 "ide"）
     #[serde(default = "default_endpoint")]
     pub default_endpoint: String,
@@ -155,6 +171,18 @@ fn default_extract_thinking() -> bool {
     true
 }
 
+fn default_response_cache_enabled() -> bool {
+    false
+}
+
+fn default_response_cache_ttl_seconds() -> u64 {
+    24 * 60 * 60
+}
+
+fn default_response_cache_cleanup_interval_seconds() -> u64 {
+    60 * 60
+}
+
 fn default_endpoint() -> String {
     crate::kiro::endpoint::ide::IDE_ENDPOINT_NAME.to_string()
 }
@@ -182,6 +210,10 @@ impl Default for Config {
             admin_api_key: None,
             load_balancing_mode: default_load_balancing_mode(),
             extract_thinking: default_extract_thinking(),
+            response_cache_enabled: default_response_cache_enabled(),
+            response_cache_ttl_seconds: default_response_cache_ttl_seconds(),
+            response_cache_cleanup_interval_seconds: default_response_cache_cleanup_interval_seconds(),
+            response_cache_dir: None,
             default_endpoint: default_endpoint(),
             endpoints: HashMap::new(),
             config_path: None,
@@ -238,5 +270,28 @@ impl Config {
         let content = serde_json::to_string_pretty(self).context("序列化配置失败")?;
         fs::write(path, content).with_context(|| format!("写入配置文件失败: {}", path.display()))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn response_cache_config_uses_camel_case_json_fields() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "responseCacheEnabled": true,
+                "responseCacheTtlSeconds": 120,
+                "responseCacheCleanupIntervalSeconds": 30,
+                "responseCacheDir": "cache-dir"
+            }"#,
+        )
+        .unwrap();
+
+        assert!(config.response_cache_enabled);
+        assert_eq!(config.response_cache_ttl_seconds, 120);
+        assert_eq!(config.response_cache_cleanup_interval_seconds, 30);
+        assert_eq!(config.response_cache_dir.as_deref(), Some("cache-dir"));
     }
 }

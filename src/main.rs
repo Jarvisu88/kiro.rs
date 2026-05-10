@@ -10,6 +10,7 @@ pub mod token;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anthropic::{ResponseCache, ResponseCacheConfig};
 use clap::Parser;
 use kiro::endpoint::{IdeEndpoint, KiroEndpoint};
 use kiro::model::credentials::{CredentialsConfig, KiroCredentials};
@@ -128,6 +129,32 @@ async fn main() {
 
     let endpoint_names: Vec<String> = endpoints.keys().cloned().collect();
 
+    let response_cache_dir = config
+        .response_cache_dir
+        .as_ref()
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::path::Path::new(&credentials_path)
+                .parent()
+                .map(|dir| dir.join("response_cache"))
+        });
+    let response_cache = response_cache_dir.and_then(|dir| {
+        ResponseCache::new(ResponseCacheConfig {
+            enabled: config.response_cache_enabled,
+            dir,
+            ttl_seconds: config.response_cache_ttl_seconds,
+            cleanup_interval_seconds: config.response_cache_cleanup_interval_seconds,
+        })
+    });
+
+    if response_cache.is_some() {
+        tracing::info!(
+            "Response cache enabled: ttl={}s cleanup_interval={}s",
+            config.response_cache_ttl_seconds,
+            config.response_cache_cleanup_interval_seconds
+        );
+    }
+
     // 创建 MultiTokenManager 和 KiroProvider
     let token_manager = MultiTokenManager::new(
         config.clone(),
@@ -162,6 +189,7 @@ async fn main() {
         &api_key,
         Some(kiro_provider),
         config.extract_thinking,
+        response_cache,
     );
 
     // 构建 Admin API 路由（如果配置了非空的 admin_api_key）
